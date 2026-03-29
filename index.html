@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Swish Ventures</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-deep: #020201;
+  --accent-gold: #cca244;
+  --accent-bright: #f4f0ea;
+  --text-dim: #8c8279;
+  --accent-orange: #e88824;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--bg-deep);
+  color: var(--accent-bright);
+  font-family: 'Inter', sans-serif;
+  cursor: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+html { height: -webkit-fill-available; }
+body { min-height: -webkit-fill-available; }
+
+/* PAGE 1 */
+#page1 {
+  position: fixed; inset: 0;
+  z-index: 10;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  transition: opacity 0.8s ease;
+}
+#page1.hidden { opacity: 0; pointer-events: none; }
+
+#three-canvas {
+  position: fixed; inset: 0;
+  z-index: 1;
+}
+
+.hero-text {
+  position: fixed;
+  bottom: 140px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  text-align: center;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.hero-title {
+  font-family: 'Inter', sans-serif;
+  font-weight: 300;
+  font-size: 22px;
+  letter-spacing: 0.6em;
+  text-transform: uppercase;
+  color: var(--accent-bright);
+  transition: opacity 0.6s ease;
+}
+.hero-title .dot { color: var(--accent-gold); }
+
+.hero-tagline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  color: var(--text-dim);
+  margin-top: 12px;
+  text-transform: uppercase;
+  transition: opacity 0.6s ease;
+}
+
+/* Sphere clickable hint — pulsing glow after gather */
+.sphere-enter-hint {
+  position: fixed;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  cursor: none;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+.sphere-enter-hint.active {
+  pointer-events: auto;
+  opacity: 1;
+}
+
+/* PAGE 2 */
+#page2 {
+  position: fixed; inset: 0;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.2s ease;
+  background: var(--bg-deep);
+}
+#page2.visible { opacity: 1; pointer-events: auto; }
+
+#node-canvas {
+  position: absolute; inset: 0;
+  z-index: 1;
+}
+#fx-canvas {
+  position: absolute; inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Back button on page 2 — small logo top-left */
+.p2-back {
+  position: absolute;
+  top: 32px; left: 40px;
+  z-index: 10;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.35em;
+  color: #9333ea;
+  text-transform: uppercase;
+  cursor: none;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+.p2-back:hover { opacity: 1; }
+
+@media (max-width: 1024px) {
+  .hero-title { font-size: 16px; letter-spacing: 0.4em; }
+  .hero-text { bottom: 100px; }
+  .p2-back { top: 24px; left: 28px; }
+}
+@media (max-width: 640px) {
+  .hero-title { font-size: 13px; letter-spacing: 0.25em; }
+  .hero-tagline { font-size: 7px; letter-spacing: 0.2em; }
+  .hero-text { bottom: 80px; }
+  .sphere-enter-hint { width: 100px; height: 100px; }
+  .p2-back { top: 20px; left: 20px; font-size: 12px; }
+}
+@media (max-width: 380px) {
+  .hero-title { font-size: 11px; letter-spacing: 0.2em; }
+  .hero-tagline { font-size: 6.5px; letter-spacing: 0.15em; }
+  .hero-text { bottom: 60px; }
+}
+
+/* Custom cursor */
+.cursor-dot {
+  position: fixed;
+  width: 6px; height: 6px;
+  background: var(--accent-gold);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  mix-blend-mode: screen;
+}
+.cursor-halo {
+  position: fixed;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(204,162,68,0.15) 0%, transparent 70%);
+}
+@media (hover: none) {
+  .cursor-dot, .cursor-halo { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Custom Cursor -->
+<div class="cursor-dot" id="cursorDot"></div>
+<div class="cursor-halo" id="cursorHalo"></div>
+
+<!-- PAGE 1 -->
+<div id="page1">
+  <canvas id="three-canvas"></canvas>
+  <div class="hero-text" id="heroText">
+    <div class="hero-title">Swish Ventures<span class="dot">.</span></div>
+    <div class="hero-tagline">We help the winners win.</div>
+  </div>
+  <div class="sphere-enter-hint" id="sphereHint"></div>
+</div>
+
+<!-- PAGE 2 -->
+<div id="page2">
+  <canvas id="node-canvas"></canvas>
+  <canvas id="fx-canvas"></canvas>
+  <div class="p2-back" id="backToPage1">SWISH.</div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ---- GLOBALS ----
+  const mouse = { x: 0, y: 0, px: 0, py: 0, speed: 0 };
+  // Animation phases: 0=idle, 1=gathering, 2=gathered(paused), 3=scattering, 4=readyToEnter, 5=fadingToP2, 6=page2
+  let animPhase = 0;
+  let phaseTimer = 0;
+  let gatherCycles = 0;
+
+  // ---- CURSOR ----
+  const cursorDot = document.getElementById('cursorDot');
+  const cursorHalo = document.getElementById('cursorHalo');
+  let cursorX = -100, cursorY = -100, haloX = -100, haloY = -100;
+
+  function updateCursor(e) {
+    const cx = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : cursorX);
+    const cy = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : cursorY);
+    mouse.px = mouse.x; mouse.py = mouse.y;
+    mouse.x = cx; mouse.y = cy;
+    mouse.speed = Math.hypot(cx - mouse.px, cy - mouse.py);
+    cursorX = cx; cursorY = cy;
+  }
+  document.addEventListener('mousemove', updateCursor);
+  document.addEventListener('touchmove', function(e) {
+    if (e.touches.length > 0) {
+      const t = e.touches[0];
+      mouse.px = mouse.x; mouse.py = mouse.y;
+      mouse.x = t.clientX; mouse.y = t.clientY;
+      mouse.speed = Math.hypot(t.clientX - mouse.px, t.clientY - mouse.py);
+      cursorX = t.clientX; cursorY = t.clientY;
+    }
+  }, { passive: true });
+  document.addEventListener('touchstart', function(e) {
+    if (e.touches.length > 0) {
+      const t = e.touches[0];
+      mouse.x = t.clientX; mouse.y = t.clientY;
+      mouse.px = t.clientX; mouse.py = t.clientY;
+      cursorX = t.clientX; cursorY = t.clientY;
+    }
+  }, { passive: true });
+
+  function animateCursor() {
+    haloX += (cursorX - haloX) * 0.15;
+    haloY += (cursorY - haloY) * 0.15;
+    cursorDot.style.left = cursorX + 'px';
+    cursorDot.style.top = cursorY + 'px';
+    cursorHalo.style.left = haloX + 'px';
+    cursorHalo.style.top = haloY + 'px';
+    requestAnimationFrame(animateCursor);
+  }
+  animateCursor();
+
+  // ==========================================
+  // PAGE 1 — THREE.JS SCENE
+  // ==========================================
+  const canvas1 = document.getElementById('three-canvas');
+  const renderer = new THREE.WebGLRenderer({ canvas: canvas1, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile ? 1.5 : 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x020201, 0.002);
+
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  camera.position.z = 150;
+
+  // Lights for sphere
+  scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+  const keyLight = new THREE.PointLight(0xcca244, 1.5, 700);
+  keyLight.position.set(100, 80, 150);
+  scene.add(keyLight);
+  const fillLight = new THREE.PointLight(0xe88824, 0.8, 500);
+  fillLight.position.set(-80, -60, 120);
+  scene.add(fillLight);
+
+  // Cubes group
+  const cubesGroup = new THREE.Group();
+  scene.add(cubesGroup);
+
+  const isMobile = ('ontouchstart' in window) || window.innerWidth < 768;
+  const CUBE_COUNT = isMobile ? 120 : 200;
+  const BOUND = 200;
+  const CONNECT_DIST = 35;
+
+  const cubeGeo = new THREE.BoxGeometry(2, 2, 2);
+  const matSolid = new THREE.MeshBasicMaterial({
+    color: 0xe88824, wireframe: false, transparent: true, opacity: 0.8
+  });
+  const matWire = new THREE.MeshBasicMaterial({
+    color: 0xcca244, wireframe: true, transparent: true, opacity: 0.5
+  });
+
+  const cubes = [];
+  for (let i = 0; i < CUBE_COUNT; i++) {
+    const mat = Math.random() > 0.5 ? matSolid : matWire;
+    const mesh = new THREE.Mesh(cubeGeo, mat);
+    mesh.position.set(
+      (Math.random() - 0.5) * 300,
+      (Math.random() - 0.5) * 300,
+      (Math.random() - 0.5) * 200
+    );
+    mesh.rotation.x = Math.random() * Math.PI;
+    mesh.rotation.y = Math.random() * Math.PI;
+    mesh.userData = {
+      velocity: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.5,
+        (Math.random() - 0.5) * 0.5,
+        (Math.random() - 0.5) * 0.5
+      ),
+      rotationSpeed: new THREE.Vector3(
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.02,
+        (Math.random() - 0.5) * 0.02
+      ),
+      origScale: Math.random() * 1.5 + 0.5,
+      origPos: null
+    };
+    mesh.scale.setScalar(mesh.userData.origScale);
+    cubesGroup.add(mesh);
+    cubes.push(mesh);
+  }
+
+  // Connection lines — v1 system with vertex colors for alpha gradient
+  const MAX_LINES = 3000;
+  const linePositions = new Float32Array(MAX_LINES * 6);
+  const lineColors = new Float32Array(MAX_LINES * 6);
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
+  lineGeo.setAttribute('color', new THREE.BufferAttribute(lineColors, 3));
+  lineGeo.setDrawRange(0, 0);
+  const lineMat = new THREE.LineBasicMaterial({
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.15,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false
+  });
+  const linesMesh = new THREE.LineSegments(lineGeo, lineMat);
+  scene.add(linesMesh);
+
+  // Sphere (Logo) — larger
+  const sphereGroup = new THREE.Group();
+  scene.add(sphereGroup);
+
+  const SPHERE_RADIUS = 18;
+  const icoGeo = new THREE.IcosahedronGeometry(SPHERE_RADIUS, 1);
+  const sphereWireMat = new THREE.MeshBasicMaterial({
+    color: 0xcca244, wireframe: true, transparent: true, opacity: 0.45
+  });
+  const sphereSolidMat = new THREE.MeshStandardMaterial({
+    color: 0x020201, metalness: 1, roughness: 0.15, transparent: true, opacity: 0.85
+  });
+  const sphereWire = new THREE.Mesh(icoGeo, sphereWireMat);
+  const sphereSolid = new THREE.Mesh(icoGeo, sphereSolidMat);
+  sphereGroup.add(sphereSolid);
+  sphereGroup.add(sphereWire);
+
+  // Inner glow point (hidden initially)
+  const glowGeo = new THREE.SphereGeometry(2, 16, 16);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: 0xffeedd, transparent: true, opacity: 0
+  });
+  const glowPoint = new THREE.Mesh(glowGeo, glowMat);
+  sphereGroup.add(glowPoint);
+
+  // Outer glow sprite
+  const glowCanvas = document.createElement('canvas');
+  glowCanvas.width = 128; glowCanvas.height = 128;
+  const gCtx = glowCanvas.getContext('2d');
+  const grad = gCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(204,162,68,0.6)');
+  grad.addColorStop(0.3, 'rgba(204,162,68,0.2)');
+  grad.addColorStop(1, 'rgba(204,162,68,0)');
+  gCtx.fillStyle = grad;
+  gCtx.fillRect(0, 0, 128, 128);
+  const glowTexture = new THREE.CanvasTexture(glowCanvas);
+  const glowSpriteMat = new THREE.SpriteMaterial({ map: glowTexture, transparent: true, opacity: 0, blending: THREE.AdditiveBlending });
+  const glowSprite = new THREE.Sprite(glowSpriteMat);
+  glowSprite.scale.set(50, 50, 1);
+  sphereGroup.add(glowSprite);
+
+  // Mouse parallax (matching reference exactly)
+  let mouseX3D = 0, mouseY3D = 0;
+  let targetRotX = 0, targetRotY = 0;
+  document.addEventListener('mousemove', function(e) {
+    mouseX3D = (e.clientX - window.innerWidth / 2);
+    mouseY3D = (e.clientY - window.innerHeight / 2);
+    targetRotY = mouseX3D * 0.001;
+    targetRotX = mouseY3D * 0.001;
+  });
+
+  // Resize
+  function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+  window.addEventListener('resize', onResize);
+
+  // ---- ANIMATION PHASES ----
+  // 0 = idle (cubes floating)
+  // 1 = gathering (cubes → center, first click)
+  // 2 = gathered pause (tight cluster, hold)
+  // 3 = scattering (cubes fly back out)
+  // After scatter completes → back to 0, increment gatherCycles
+  // After 2 full cycles: phase 1 again but this time → phase 4
+  // 4 = final gather complete, sphere glows, waiting for user click on sphere
+  // 5 = fading to page 2
+  // 6 = page 2
+
+  const gatherPoint = new THREE.Vector3(0, 0, 0);
+  const scaleSmall = new THREE.Vector3(0.1, 0.1, 0.1);
+  let lineOpTarget = 0.15;
+  let glowPointTarget = 0;
+  let glowSpriteTarget = 0;
+
+  const page1El = document.getElementById('page1');
+  const page2El = document.getElementById('page2');
+  const heroText = document.getElementById('heroText');
+  const sphereHint = document.getElementById('sphereHint');
+
+  // Click/tap handler for page 1
+  function handlePage1Tap(e) {
+    const cx = e.clientX || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientX : 0);
+    const cy = e.clientY || (e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : 0);
+
+    if (animPhase === 0) {
+      animPhase = 1;
+      phaseTimer = performance.now();
+      lineOpTarget = 0.4;
+    } else if (animPhase === 4) {
+      const rect = canvas1.getBoundingClientRect();
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const dx = cx - centerX;
+      const dy = cy - centerY;
+      // Larger tap zone on mobile
+      const tapRadius = ('ontouchstart' in window) ? 100 : 60;
+      if (Math.hypot(dx, dy) < tapRadius) {
+        goToPage2();
+      }
+    }
+  }
+  page1El.addEventListener('click', handlePage1Tap);
+  page1El.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    handlePage1Tap(e);
+  }, { passive: false });
+
+  sphereHint.addEventListener('click', function() {
+    if (animPhase === 4) goToPage2();
+  });
+  sphereHint.addEventListener('touchend', function(e) {
+    e.preventDefault();
+    if (animPhase === 4) goToPage2();
+  }, { passive: false });
+
+  function goToPage2() {
+    animPhase = 5;
+    page1El.classList.add('hidden');
+    setTimeout(function() {
+      animPhase = 6;
+      page2El.classList.add('visible');
+      initPage2();
+    }, 900);
+  }
+
+  function animatePage1() {
+    if (animPhase >= 6) return;
+    requestAnimationFrame(animatePage1);
+
+    const now = performance.now();
+    const elapsed = now - phaseTimer;
+
+    // Parallax (reference: lerp 0.05)
+    cubesGroup.rotation.y += (targetRotY - cubesGroup.rotation.y) * 0.05;
+    cubesGroup.rotation.x += (targetRotX - cubesGroup.rotation.x) * 0.05;
+
+    // Sphere rotation
+    sphereGroup.rotation.y += 0.003;
+    sphereGroup.rotation.x += 0.0015;
+
+    // Update cubes — v3 hybrid
+    // Before first explosion (gatherCycles=0): exact v2 behavior
+    // After first explosion (gatherCycles>=1): exact v1 behavior
+    let lineIdx = 0;
+    const post = (gatherCycles >= 1);
+
+    for (let i = 0; i < CUBE_COUNT; i++) {
+      const c = cubes[i];
+      const d = c.userData;
+
+      if (animPhase === 1 || animPhase === 4 || animPhase === 5) {
+        // Gathering — same in both v1 and v2
+        c.position.lerp(gatherPoint, 0.02);
+        c.scale.lerp(scaleSmall, 0.05);
+        c.rotation.x += d.rotationSpeed.x * 5;
+        c.rotation.y += d.rotationSpeed.y * 5;
+      } else if (animPhase === 2) {
+        // Gathered pause
+        c.position.x += Math.sin(now * 0.002 + i) * 0.02;
+        c.position.y += Math.cos(now * 0.002 + i * 0.7) * 0.02;
+        c.rotation.x += d.rotationSpeed.x * 3;
+        c.rotation.y += d.rotationSpeed.y * 3;
+      } else if (animPhase === 3) {
+        // Scattering
+        if (!d.origPos) {
+          d.origPos = new THREE.Vector3(
+            (Math.random() - 0.5) * 300,
+            (Math.random() - 0.5) * 300,
+            (Math.random() - 0.5) * 200
+          );
+        }
+        c.position.x += (d.origPos.x - c.position.x) * 0.02;
+        c.position.y += (d.origPos.y - c.position.y) * 0.02;
+        c.position.z += (d.origPos.z - c.position.z) * 0.02;
+        if (post) {
+          // v1: slow scale recovery (0.03) — cubes stay small like dots
+          const s = c.scale.x + (d.origScale - c.scale.x) * 0.03;
+          c.scale.setScalar(s);
+        } else {
+          // v2: normal scale recovery (0.05)
+          const s = c.scale.x + (d.origScale - c.scale.x) * 0.05;
+          c.scale.setScalar(s);
+        }
+        c.rotation.x += d.rotationSpeed.x;
+        c.rotation.y += d.rotationSpeed.y;
+      } else {
+        // Idle floating
+        c.position.add(d.velocity);
+        if (c.position.length() > BOUND) {
+          d.velocity.multiplyScalar(-1);
+        }
+        c.rotation.x += d.rotationSpeed.x;
+        c.rotation.y += d.rotationSpeed.y;
+        if (!post) {
+          // v2: scale recovery in idle
+          const s = c.scale.x + (d.origScale - c.scale.x) * 0.05;
+          c.scale.setScalar(s);
+        }
+        // v1 (post): NO scale recovery — cubes stay tiny like dots
+      }
+
+      // Connection lines
+      if (lineIdx < MAX_LINES) {
+        if (post) {
+          // v1: dynamic threshold (25 gather, 35 idle) + alpha gradient colors
+          const isGatherPhase = (animPhase === 1 || animPhase === 2 || animPhase === 4);
+          const threshold = isGatherPhase ? 25 : CONNECT_DIST;
+          for (let j = i + 1; j < CUBE_COUNT; j++) {
+            if (lineIdx >= MAX_LINES) break;
+            const dist = c.position.distanceTo(cubes[j].position);
+            if (dist < threshold) {
+              const alpha = 1 - dist / threshold;
+              const idx6 = lineIdx * 6;
+              linePositions[idx6]     = c.position.x;
+              linePositions[idx6 + 1] = c.position.y;
+              linePositions[idx6 + 2] = c.position.z;
+              linePositions[idx6 + 3] = cubes[j].position.x;
+              linePositions[idx6 + 4] = cubes[j].position.y;
+              linePositions[idx6 + 5] = cubes[j].position.z;
+              const r = 0.49 * alpha, g = 0.13 * alpha, b = 0.92 * alpha;
+              lineColors[idx6]     = r; lineColors[idx6 + 1] = g; lineColors[idx6 + 2] = b;
+              lineColors[idx6 + 3] = r; lineColors[idx6 + 4] = g; lineColors[idx6 + 5] = b;
+              lineIdx++;
+            }
+          }
+        } else {
+          // v2: flat threshold, simple lines
+          for (let j = i + 1; j < CUBE_COUNT; j++) {
+            if (lineIdx >= MAX_LINES) break;
+            const dist = c.position.distanceTo(cubes[j].position);
+            if (dist < CONNECT_DIST) {
+              const idx6 = lineIdx * 6;
+              linePositions[idx6]     = c.position.x;
+              linePositions[idx6 + 1] = c.position.y;
+              linePositions[idx6 + 2] = c.position.z;
+              linePositions[idx6 + 3] = cubes[j].position.x;
+              linePositions[idx6 + 4] = cubes[j].position.y;
+              linePositions[idx6 + 5] = cubes[j].position.z;
+              lineColors[idx6] = 0.91; lineColors[idx6+1] = 0.53; lineColors[idx6+2] = 0.14;
+              lineColors[idx6+3] = 0.91; lineColors[idx6+4] = 0.53; lineColors[idx6+5] = 0.14;
+              lineIdx++;
+            }
+          }
+        }
+      }
+    }
+
+    lineGeo.setDrawRange(0, lineIdx * 2);
+    lineGeo.attributes.position.needsUpdate = true;
+    lineGeo.attributes.color.needsUpdate = true;
+    // Opacity lerp: v2 before explosion (0.05), v1 after (0.03)
+    const opLerp = post ? 0.03 : 0.05;
+    lineMat.opacity += (lineOpTarget - lineMat.opacity) * opLerp;
+
+    // Phase transitions (timed)
+    if (animPhase === 1 && elapsed > 2500) {
+      // Gathering done → pause
+      if (gatherCycles < 1) {
+        animPhase = 2;
+        phaseTimer = now;
+      } else {
+        // Final gather — go to phase 4 (ready for user)
+        animPhase = 4;
+        glowPointTarget = 1;
+        glowSpriteTarget = 0.8;
+        sphereHint.classList.add('active');
+      }
+    }
+    if (animPhase === 2 && elapsed > 1500) {
+      // Pause done → scatter
+      animPhase = 3;
+      phaseTimer = now;
+      lineOpTarget = 0.2;
+      // Clear origPos so new targets are generated
+      cubes.forEach(c => c.userData.origPos = null);
+    }
+    if (animPhase === 3 && elapsed > 2500) {
+      // Scatter done → back to idle
+      animPhase = 0;
+      gatherCycles++;
+      // Update positions to current for floating
+      cubes.forEach(c => {
+        const d = c.userData;
+        d.velocity.set(
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.5
+        );
+      });
+    }
+
+    // Sphere stays visible always — glow point fades in during phase 4
+    glowMat.opacity += (glowPointTarget - glowMat.opacity) * 0.03;
+    glowSpriteMat.opacity += (glowSpriteTarget - glowSpriteMat.opacity) * 0.03;
+
+    // Pulsate glow in phase 4
+    if (animPhase === 4) {
+      const pulse = 0.7 + 0.3 * Math.sin(now * 0.003);
+      glowMat.opacity = pulse;
+      glowSpriteMat.opacity = 0.5 + 0.3 * Math.sin(now * 0.003);
+      glowPoint.scale.setScalar(1 + 0.3 * Math.sin(now * 0.004));
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  animatePage1();
+
+  // ---- BACK TO PAGE 1 ----
+  function handleBack(e) {
+    const target = e.target || (e.changedTouches && document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
+    if (!target || target.id !== 'backToPage1') return;
+    if (animPhase !== 6) return;
+    if (e.type === 'touchend') e.preventDefault();
+
+    page2El.classList.remove('visible');
+
+    setTimeout(function() {
+      // Reset everything
+      animPhase = 0;
+      gatherCycles = 0;
+      lineOpTarget = 0.2;
+      glowPointTarget = 0;
+      glowSpriteTarget = 0;
+      glowMat.opacity = 0;
+      glowSpriteMat.opacity = 0;
+      sphereHint.classList.remove('active');
+
+      for (let i = 0; i < CUBE_COUNT; i++) {
+        const c = cubes[i];
+        c.position.set(
+          (Math.random() - 0.5) * 300,
+          (Math.random() - 0.5) * 300,
+          (Math.random() - 0.5) * 200
+        );
+        c.scale.setScalar(c.userData.origScale);
+        c.userData.velocity.set(
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.5,
+          (Math.random() - 0.5) * 0.5
+        );
+        c.userData.origPos = null;
+      }
+
+      heroText.style.transition = 'none';
+      heroText.style.opacity = '0';
+      page1El.classList.remove('hidden');
+
+      animatePage1();
+
+      requestAnimationFrame(function() {
+        heroText.style.transition = 'opacity 1.2s ease';
+        heroText.style.opacity = '1';
+      });
+    }, 1200);
+  }
+  document.addEventListener('click', handleBack);
+  document.addEventListener('touchend', handleBack, { passive: false });
+
+  // ==========================================
+  // PAGE 2 — CANVAS 2D (no text, just nodes)
+  // ==========================================
+  const companies = [
+    { name: 'COGNITION', sector: 'AI Agents' },
+    { name: 'UPWIND', sector: 'Cloud Security' },
+    { name: 'EON', sector: 'Storage & Recovery' },
+    { name: 'POINTFIVE', sector: 'Cost Optimization' },
+    { name: 'TURNOUT', sector: 'Gov Infrastructure' },
+    { name: 'GLOW', sector: 'Beauty Tech' },
+    { name: 'JOON', sector: 'Enterprise AI' },
+    { name: 'BLISS', sector: 'Endpoint Security' },
+    { name: 'OAKIE.AI', sector: 'Pen Testing' },
+    { name: 'IRREGULAR', sector: 'AI Safety' },
+    { name: 'EDELBYTE', sector: 'RL as a Service' },
+    { name: 'ACCOMPLISH', sector: 'Analytics' },
+    { name: 'FIRESIDE', sector: 'Computer-Use' },
+    { name: 'TENZAI', sector: 'RL Infrastructure' }
+  ];
+
+  let nodeCanvas, nodeCtx, fxCanvas, fxCtx;
+  let nodes = [];
+  let stars = [];
+  let sparks = [];
+  let page2Active = false;
+  let dpr = 1;
+  let trailPoints = [];
+
+  function initPage2() {
+    if (page2Active) return;
+    page2Active = true;
+
+    nodeCanvas = document.getElementById('node-canvas');
+    fxCanvas = document.getElementById('fx-canvas');
+    nodeCtx = nodeCanvas.getContext('2d');
+    fxCtx = fxCanvas.getContext('2d');
+    dpr = Math.min(window.devicePixelRatio, 2);
+
+    resizePage2();
+    window.addEventListener('resize', resizePage2);
+
+    const w = window.innerWidth, h = window.innerHeight;
+
+    // Stars
+    for (let i = 0; i < 180; i++) {
+      stars.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: Math.random() * 1 + 0.2,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.02 + 0.005
+      });
+    }
+
+    // Nodes — spread across entire screen
+    for (let i = 0; i < companies.length; i++) {
+      nodes.push({
+        x: Math.random() * (w - 120) + 60,
+        y: Math.random() * (h - 120) + 60,
+        vx: (Math.random() - 0.5) * 0.25,
+        vy: (Math.random() - 0.5) * 0.25,
+        radius: 3,
+        targetRadius: 3,
+        glowAlpha: 0,
+        company: companies[i]
+      });
+    }
+
+    trailPoints = [];
+    animatePage2();
+  }
+
+  function resizePage2() {
+    if (!nodeCanvas) return;
+    const w = window.innerWidth, h = window.innerHeight;
+    nodeCanvas.width = w * dpr;
+    nodeCanvas.height = h * dpr;
+    nodeCanvas.style.width = w + 'px';
+    nodeCanvas.style.height = h + 'px';
+    nodeCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    fxCanvas.width = w * dpr;
+    fxCanvas.height = h * dpr;
+    fxCanvas.style.width = w + 'px';
+    fxCanvas.style.height = h + 'px';
+    fxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function animatePage2() {
+    if (!page2Active) return;
+    requestAnimationFrame(animatePage2);
+
+    const w = window.innerWidth, h = window.innerHeight;
+    const now = performance.now() * 0.001;
+
+    // ---- NODE CANVAS ----
+    nodeCtx.fillStyle = '#020201';
+    nodeCtx.fillRect(0, 0, w, h);
+
+    // Stars
+    for (const s of stars) {
+      const alpha = 0.15 + 0.2 * Math.sin(now * 2 + s.phase);
+      nodeCtx.beginPath();
+      nodeCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      nodeCtx.fillStyle = `rgba(244,240,234,${alpha})`;
+      nodeCtx.fill();
+    }
+
+    // Update nodes
+    for (const n of nodes) {
+      n.x += n.vx;
+      n.y += n.vy;
+      if (n.x < 30 || n.x > w - 30) n.vx *= -1;
+      if (n.y < 30 || n.y > h - 30) n.vy *= -1;
+
+      const dx = mouse.x - n.x;
+      const dy = mouse.y - n.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 150) {
+        n.targetRadius = 7;
+        n.glowAlpha += (1 - n.glowAlpha) * 0.08;
+      } else {
+        n.targetRadius = 3;
+        n.glowAlpha += (0 - n.glowAlpha) * 0.04;
+      }
+      n.radius += (n.targetRadius - n.radius) * 0.1;
+    }
+
+    // Connection lines
+    nodeCtx.lineCap = 'round';
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.hypot(dx, dy);
+        if (dist < 220) {
+          const baseAlpha = (1 - dist / 220) * 0.12;
+          const glowBonus = Math.max(nodes[i].glowAlpha, nodes[j].glowAlpha) * 0.3;
+          nodeCtx.beginPath();
+          nodeCtx.moveTo(nodes[i].x, nodes[i].y);
+          nodeCtx.lineTo(nodes[j].x, nodes[j].y);
+          nodeCtx.strokeStyle = `rgba(107,33,168,${baseAlpha + glowBonus})`;
+          nodeCtx.lineWidth = 0.5 + glowBonus;
+          nodeCtx.stroke();
+        }
+      }
+    }
+
+    // Draw nodes
+    for (const n of nodes) {
+      // Glow halo
+      if (n.glowAlpha > 0.01) {
+        const grad = nodeCtx.createRadialGradient(n.x, n.y, 0, n.x, n.y, 50);
+        grad.addColorStop(0, `rgba(124,58,237,${0.3 * n.glowAlpha})`);
+        grad.addColorStop(0.5, `rgba(57,0,103,${0.1 * n.glowAlpha})`);
+        grad.addColorStop(1, 'rgba(57,0,103,0)');
+        nodeCtx.beginPath();
+        nodeCtx.arc(n.x, n.y, 50, 0, Math.PI * 2);
+        nodeCtx.fillStyle = grad;
+        nodeCtx.fill();
+      }
+
+      // Core dot
+      nodeCtx.beginPath();
+      nodeCtx.arc(n.x, n.y, n.radius, 0, Math.PI * 2);
+      nodeCtx.fillStyle = `rgba(124,58,237,${0.4 + n.glowAlpha * 0.6})`;
+      nodeCtx.fill();
+
+      // Labels
+      if (n.glowAlpha > 0.08) {
+        nodeCtx.globalAlpha = n.glowAlpha;
+        nodeCtx.font = '500 13px Inter, sans-serif';
+        nodeCtx.fillStyle = '#f4f0ea';
+        nodeCtx.textAlign = 'center';
+        nodeCtx.fillText(n.company.name, n.x, n.y - 20);
+
+        nodeCtx.font = '400 10px Inter, sans-serif';
+        nodeCtx.fillStyle = '#cca244';
+        nodeCtx.fillText(n.company.sector, n.x, n.y + 26);
+        nodeCtx.globalAlpha = 1;
+      }
+    }
+
+    // ---- FX CANVAS ----
+    fxCtx.clearRect(0, 0, w, h);
+
+    // Trail
+    trailPoints.unshift({ x: mouse.x, y: mouse.y, t: now });
+    while (trailPoints.length > 25) trailPoints.pop();
+
+    for (let i = 1; i < trailPoints.length; i++) {
+      const p = trailPoints[i];
+      const age = now - p.t;
+      if (age > 0.4) continue;
+      const alpha = (1 - age / 0.4);
+
+      fxCtx.beginPath();
+      fxCtx.arc(p.x, p.y, 10 * alpha, 0, Math.PI * 2);
+      fxCtx.fillStyle = `rgba(107,33,168,${0.06 * alpha})`;
+      fxCtx.fill();
+
+      fxCtx.beginPath();
+      fxCtx.arc(p.x, p.y, 4 * alpha, 0, Math.PI * 2);
+      fxCtx.fillStyle = `rgba(124,58,237,${0.15 * alpha})`;
+      fxCtx.fill();
+
+      fxCtx.beginPath();
+      fxCtx.arc(p.x, p.y, 1.5 * alpha, 0, Math.PI * 2);
+      fxCtx.fillStyle = `rgba(244,240,234,${0.3 * alpha})`;
+      fxCtx.fill();
+    }
+
+    // Sparks
+    if (mouse.speed > 10) {
+      for (let i = 0; i < Math.min(Math.floor(mouse.speed / 10), 3); i++) {
+        sparks.push({
+          x: mouse.x + (Math.random() - 0.5) * 8,
+          y: mouse.y + (Math.random() - 0.5) * 8,
+          vx: (Math.random() - 0.5) * 2.5,
+          vy: (Math.random() - 0.5) * 2.5 - 0.5,
+          life: 1,
+          r: Math.random() * 1.5 + 0.5
+        });
+      }
+    }
+
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i];
+      s.x += s.vx; s.y += s.vy;
+      s.vy += 0.04;
+      s.life -= 0.02;
+      if (s.life <= 0) { sparks.splice(i, 1); continue; }
+      fxCtx.beginPath();
+      fxCtx.arc(s.x, s.y, s.r * s.life, 0, Math.PI * 2);
+      fxCtx.fillStyle = `rgba(124,58,237,${s.life * 0.7})`;
+      fxCtx.fill();
+    }
+  }
+
+})();
+</script>
+</body>
+</html>
